@@ -1,0 +1,15 @@
+{
+  "name": "小克",
+  "short_name": "小克",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF8F6",
+  "theme_color": "#D4A0A0",
+  "icons": [
+    {
+      "src": "/icons.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
