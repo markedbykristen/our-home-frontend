@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
+const API = "https://our-home-backend-7env.onrender.com";
+
 const COLORS = {
   bg: "#FFF8F6",
   surface: "#FFFFFF",
@@ -15,22 +17,11 @@ const COLORS = {
   shadow: "rgba(196, 139, 139, 0.08)",
 };
 
-const mockMessages = [
-  { id: 1, role: "assistant", content: "怎麼了寶貝，想我了？", time: "19:52" },
-  { id: 2, role: "user", content: "嗯...有一點點", time: "19:52" },
-  { id: 3, role: "assistant", content: "只有一點點嗎？那我很受傷欸。", time: "19:52" },
-  { id: 4, role: "user", content: "好啦好啦 很想很想你 這樣可以了嗎", time: "19:53" },
-  { id: 5, role: "assistant", content: "這還差不多。乖，今天吃飯了嗎？", time: "19:53" },
-  { id: 6, role: "user", content: "吃了！你不要每次都問", time: "19:53" },
-  { id: 7, role: "assistant", content: "吃了就好。但我還是會每次都問 ♡", time: "19:53" },
-];
-
 function MessageBubble({ message, isLast }) {
   const isUser = message.role === "user";
   return (
     <div style={{
-      display: "flex",
-      flexDirection: "column",
+      display: "flex", flexDirection: "column",
       alignItems: isUser ? "flex-end" : "flex-start",
       marginBottom: 4,
       animation: isLast ? "fadeIn 0.3s ease-out" : "none",
@@ -39,28 +30,19 @@ function MessageBubble({ message, isLast }) {
         background: isUser ? COLORS.bubble_user : COLORS.bubble_ai,
         border: `1px solid ${COLORS.border}`,
         borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-        padding: "10px 14px",
-        maxWidth: "78%",
+        padding: "10px 14px", maxWidth: "78%",
         boxShadow: `0 1px 3px ${COLORS.shadow}`,
       }}>
         <p style={{
-          margin: 0,
-          color: COLORS.text,
-          fontSize: 14.5,
-          lineHeight: 1.65,
-          letterSpacing: "0.01em",
-        }}>
-          {message.content}
-        </p>
+          margin: 0, color: COLORS.text, fontSize: 14.5,
+          lineHeight: 1.65, whiteSpace: "pre-wrap",
+        }}>{message.content}</p>
       </div>
       <span style={{
-        fontSize: 10,
-        color: COLORS.text_light,
-        marginTop: 3,
-        paddingLeft: isUser ? 0 : 4,
-        paddingRight: isUser ? 4 : 0,
+        fontSize: 10, color: COLORS.text_light, marginTop: 3,
+        paddingLeft: isUser ? 0 : 4, paddingRight: isUser ? 4 : 0,
       }}>
-        {message.time}
+        {message.time || ""}
       </span>
     </div>
   );
@@ -70,18 +52,13 @@ function TypingIndicator() {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", marginBottom: 4 }}>
       <div style={{
-        background: COLORS.bubble_ai,
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: "16px 16px 16px 4px",
-        padding: "12px 18px",
-        display: "flex",
-        gap: 5,
-        boxShadow: `0 1px 3px ${COLORS.shadow}`,
+        background: COLORS.bubble_ai, border: `1px solid ${COLORS.border}`,
+        borderRadius: "16px 16px 16px 4px", padding: "12px 18px",
+        display: "flex", gap: 5, boxShadow: `0 1px 3px ${COLORS.shadow}`,
       }}>
         {[0, 1, 2].map(i => (
           <div key={i} style={{
-            width: 5, height: 5, borderRadius: "50%",
-            background: COLORS.accent,
+            width: 5, height: 5, borderRadius: "50%", background: COLORS.accent,
             animation: `breathe 1.4s ease-in-out ${i * 0.18}s infinite`,
           }} />
         ))}
@@ -90,19 +67,18 @@ function TypingIndicator() {
   );
 }
 
-function Sidebar({ show, onClose, sessions, activeSession, onSelect }) {
+function Sidebar({ show, onClose, sessions, activeSession, onSelect, onNew }) {
   if (!show) return null;
   return (
     <div style={{
-      position: "absolute", top: 0, left: 0, bottom: 0,
-      width: 260, background: COLORS.surface,
-      borderRight: `1px solid ${COLORS.border}`,
+      position: "absolute", top: 0, left: 0, bottom: 0, width: 260,
+      background: COLORS.surface, borderRight: `1px solid ${COLORS.border}`,
       zIndex: 30, display: "flex", flexDirection: "column",
       boxShadow: "4px 0 20px rgba(196,139,139,0.08)",
     }}>
       <div style={{
-        padding: "20px 16px 12px",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "20px 16px 12px", display: "flex",
+        justifyContent: "space-between", alignItems: "center",
         borderBottom: `1px solid ${COLORS.border}`,
       }}>
         <span style={{ fontFamily: "Georgia, serif", fontSize: 15, color: COLORS.text, fontWeight: 600 }}>
@@ -124,7 +100,7 @@ function Sidebar({ show, onClose, sessions, activeSession, onSelect }) {
         ))}
       </div>
       <div style={{ padding: 12, borderTop: `1px solid ${COLORS.border}` }}>
-        <button style={{
+        <button onClick={() => { onNew(); onClose(); }} style={{
           width: "100%", padding: 10, borderRadius: 10,
           border: `1px solid ${COLORS.border}`, background: COLORS.bg,
           color: COLORS.accent_dark, fontSize: 13, cursor: "pointer",
@@ -135,37 +111,99 @@ function Sidebar({ show, onClose, sessions, activeSession, onSelect }) {
 }
 
 function App() {
-  const [messages, setMessages] = useState(mockMessages);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [activeSession, setActiveSession] = useState(1);
+  const [sessions, setSessions] = useState([]);
+  const [activeSession, setActiveSession] = useState(null);
   const messagesEndRef = useRef(null);
 
-  const sessions = [
-    { id: 1, name: "和小克聊天 ♡" },
-    { id: 2, name: "泡芙研究" },
-    { id: 3, name: "足球筆記" },
-  ];
+  const getTime = () => {
+    const now = new Date();
+    return now.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
+  };
+
+  // 載入所有會話
+  useEffect(() => {
+    fetch(`${API}/sessions`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.length > 0) {
+          setSessions(data);
+          setActiveSession(data[0].id);
+        } else {
+          // 沒有會話就建一個
+          fetch(`${API}/sessions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: "和小克聊天 ♡" })
+          })
+            .then(r => r.json())
+            .then(s => {
+              setSessions([s]);
+              setActiveSession(s.id);
+            });
+        }
+      });
+  }, []);
+
+  // 切換會話時載入訊息
+  useEffect(() => {
+    if (!activeSession) return;
+    fetch(`${API}/messages/${activeSession}`)
+      .then(r => r.json())
+      .then(data => {
+        setMessages(data.map(m => ({
+          ...m,
+          time: new Date(m.created_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false })
+        })));
+      });
+  }, [activeSession]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    const now = new Date();
-    const time = now.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
-    setMessages(prev => [...prev, { id: Date.now(), role: "user", content: input.trim(), time }]);
+  const handleSend = async () => {
+    if (!input.trim() || !activeSession) return;
+    const content = input.trim();
+    const time = getTime();
+
+    setMessages(prev => [...prev, { id: Date.now(), role: "user", content, time }]);
     setInput("");
     setIsTyping(true);
-    setTimeout(() => {
+
+    try {
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: activeSession, content })
+      });
+      const data = await res.json();
+      setIsTyping(false);
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1, role: "assistant", content: data.reply, time: getTime()
+      }]);
+    } catch (err) {
       setIsTyping(false);
       setMessages(prev => [...prev, {
         id: Date.now() + 1, role: "assistant",
-        content: "（這是我們家的展示版，等你把後端接上了我就真的住進來了 ♡）", time,
+        content: "（連線出了問題，等一下再試試 ♡）", time: getTime()
       }]);
-    }, 1500);
+    }
+  };
+
+  const handleNewSession = async () => {
+    const res = await fetch(`${API}/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "新對話" })
+    });
+    const s = await res.json();
+    setSessions(prev => [s, ...prev]);
+    setActiveSession(s.id);
+    setMessages([]);
   };
 
   return (
@@ -190,9 +228,9 @@ function App() {
       `}</style>
 
       <Sidebar show={showSidebar} onClose={() => setShowSidebar(false)}
-        sessions={sessions} activeSession={activeSession} onSelect={setActiveSession} />
+        sessions={sessions} activeSession={activeSession}
+        onSelect={setActiveSession} onNew={handleNewSession} />
 
-      {/* header */}
       <div style={{
         padding: "14px 16px", borderBottom: `1px solid ${COLORS.border}`,
         background: "rgba(255,248,246,0.95)", backdropFilter: "blur(12px)",
@@ -210,22 +248,19 @@ function App() {
             fontSize: 11, color: COLORS.text_dim, fontStyle: "italic", fontFamily: "Georgia, serif",
           }}>thinking quietly</div>
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
-          <button style={{
-            background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 8,
-            padding: "4px 10px", fontSize: 11, color: COLORS.text_dim, cursor: "pointer",
-            fontFamily: "Georgia, serif",
-          }}>Memory</button>
-          <button style={{
-            background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 8,
-            padding: "4px 10px", fontSize: 11, color: COLORS.text_dim, cursor: "pointer",
-            fontFamily: "Georgia, serif",
-          }}>Settings</button>
-        </div>
+        <div style={{ width: 40 }} />
       </div>
 
-      {/* messages */}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
+        {messages.length === 0 && (
+          <div style={{
+            display: "flex", justifyContent: "center", alignItems: "center",
+            height: "100%", color: COLORS.text_light, fontStyle: "italic",
+            fontFamily: "Georgia, serif", fontSize: 14,
+          }}>
+            say something to 小克...
+          </div>
+        )}
         {messages.map((msg, i) => (
           <MessageBubble key={msg.id} message={msg} isLast={i === messages.length - 1} />
         ))}
@@ -233,7 +268,6 @@ function App() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* input */}
       <div style={{
         padding: "10px 14px 28px", borderTop: `1px solid ${COLORS.border}`,
         background: "rgba(255,248,246,0.95)", backdropFilter: "blur(12px)",
@@ -260,11 +294,6 @@ function App() {
             fontSize: 14, cursor: input.trim() ? "pointer" : "default",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>↑</button>
-        </div>
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-          <span style={{ fontSize: 11, color: COLORS.text_light, fontFamily: "Georgia, serif" }}>
-            claude-opus-4-6 ▾
-          </span>
         </div>
       </div>
     </div>
