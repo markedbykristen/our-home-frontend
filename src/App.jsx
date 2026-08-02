@@ -34,7 +34,7 @@ function MessageBubble({ message, isLast }) {
         boxShadow: `0 1px 3px ${COLORS.shadow}`,
       }}>
         <p style={{
-          margin: 0, color: COLORS.text, fontSize: 14.5,
+          margin: 0, color: COLORS.text, fontSize: 14.5,textAlign: "left",
           lineHeight: 1.65, whiteSpace: "pre-wrap",
         }}>{message.content}</p>
       </div>
