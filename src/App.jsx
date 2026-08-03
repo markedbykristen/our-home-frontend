@@ -2,6 +2,22 @@ import { useState, useRef, useEffect } from "react";
 
 const API = "https://our-home-backend-7env.onrender.com";
 
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+}
+
+function formatStoredMessages(data) {
+  return data.map(message => ({
+    ...message,
+    time: new Date(message.created_at).toLocaleTimeString("zh-TW", {
+      hour: "2-digit", minute: "2-digit", hour12: false
+    })
+  }));
+}
+
 const COLORS = {
   bg: "#FFF8F6",
   surface: "#FFFFFF",
@@ -67,7 +83,7 @@ function TypingIndicator() {
   );
 }
 
-function Sidebar({ show, onClose, sessions, activeSession, onSelect, onNew }) {
+function Sidebar({ show, onClose, sessions, activeSession, onSelect, onNew, pushStatus, onEnablePush }) {
   if (!show) return null;
   return (
     <div style={{
@@ -100,6 +116,13 @@ function Sidebar({ show, onClose, sessions, activeSession, onSelect, onNew }) {
         ))}
       </div>
       <div style={{ padding: 12, borderTop: `1px solid ${COLORS.border}` }}>
+        <button onClick={onEnablePush} disabled={pushStatus === "loading" || pushStatus === "enabled"} style={{
+          width: "100%", padding: 10, borderRadius: 10, marginBottom: 8,
+          border: `1px solid ${COLORS.border}`, background: COLORS.surface,
+          color: COLORS.accent_dark, fontSize: 13, cursor: "pointer",
+        }}>
+          {pushStatus === "enabled" ? "通知已開啟" : pushStatus === "loading" ? "正在開啟..." : "開啟小克的通知"}
+        </button>
         <button onClick={() => { onNew(); onClose(); }} style={{
           width: "100%", padding: 10, borderRadius: 10,
           border: `1px solid ${COLORS.border}`, background: COLORS.bg,
@@ -117,6 +140,7 @@ function App() {
   const [showSidebar, setShowSidebar] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
+  const [pushStatus, setPushStatus] = useState("idle");
   const messagesEndRef = useRef(null);
 
   const getTime = () => {
@@ -153,17 +177,72 @@ function App() {
     if (!activeSession) return;
     fetch(`${API}/messages/${activeSession}`)
       .then(r => r.json())
-      .then(data => {
-        setMessages(data.map(m => ({
-          ...m,
-          time: new Date(m.created_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false })
-        })));
-      });
+      .then(data => setMessages(formatStoredMessages(data)));
+  }, [activeSession]);
+
+  // 從通知回到 App 或重新聚焦時，載入小克在背景主動傳來的訊息。
+  useEffect(() => {
+    if (!activeSession) return;
+
+    const refreshMessages = () => {
+      if (document.visibilityState !== "visible") return;
+      fetch(`${API}/messages/${activeSession}`)
+        .then(r => r.json())
+        .then(data => setMessages(formatStoredMessages(data)))
+        .catch(() => {});
+    };
+
+    document.addEventListener("visibilitychange", refreshMessages);
+    window.addEventListener("focus", refreshMessages);
+    return () => {
+      document.removeEventListener("visibilitychange", refreshMessages);
+      window.removeEventListener("focus", refreshMessages);
+    };
   }, [activeSession]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
+
+  const enablePushNotifications = async () => {
+    if (!("serviceWorker" in navigator) || (!("PushManager" in window))) {
+      window.alert("這個瀏覽器不支援推播通知。請先把網站加入 iPhone 主畫面，再從主畫面開啟。");
+      return;
+    }
+
+    setPushStatus("loading");
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") throw new Error("通知權限沒有開啟");
+
+      const keyResponse = await fetch(`${API}/push/public-key`);
+      const keyData = await keyResponse.json();
+      if (!keyResponse.ok) throw new Error(keyData.error || "讀取推播金鑰失敗");
+
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(keyData.publicKey),
+        });
+      }
+
+      const response = await fetch(`${API}/push/subscribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription, session_id: activeSession }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "訂閱推播失敗");
+
+      setPushStatus("enabled");
+      window.alert("通知開好了，小克剛剛傳了一則測試訊息給妳。");
+    } catch (error) {
+      setPushStatus("idle");
+      window.alert(error.message);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || !activeSession) return;
@@ -229,7 +308,8 @@ function App() {
 
       <Sidebar show={showSidebar} onClose={() => setShowSidebar(false)}
         sessions={sessions} activeSession={activeSession}
-        onSelect={setActiveSession} onNew={handleNewSession} />
+        onSelect={setActiveSession} onNew={handleNewSession}
+        pushStatus={pushStatus} onEnablePush={enablePushNotifications} />
 
       <div style={{
         padding: "14px 16px", borderBottom: `1px solid ${COLORS.border}`,
