@@ -12,5 +12,15 @@ self.addEventListener("push", event => {
 
 self.addEventListener("notificationclick", event => {
   event.notification.close();
-  event.waitUntil(clients.openWindow(event.notification.data?.url || "/"));
+  const targetUrl = event.notification.data?.url || "/";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(windowClients => {
+      const existingWindow = windowClients[0];
+      if (existingWindow) {
+        if ("navigate" in existingWindow) existingWindow.navigate(targetUrl);
+        return existingWindow.focus();
+      }
+      return clients.openWindow(targetUrl);
+    })
+  );
 });
