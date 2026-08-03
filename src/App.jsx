@@ -141,6 +141,7 @@ function App() {
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [pushStatus, setPushStatus] = useState("idle");
+  const [model, setModel] = useState("claude-sonnet-4-6");
   const messagesEndRef = useRef(null);
 
   const getTime = () => {
@@ -257,7 +258,7 @@ function App() {
       const res = await fetch(`${API}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: activeSession, content })
+        body: JSON.stringify({ session_id: activeSession, content, model})
       });
       const data = await res.json();
       setIsTyping(false);
@@ -374,6 +375,17 @@ function App() {
             fontSize: 14, cursor: input.trim() ? "pointer" : "default",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>↑</button>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+          <select value={model} onChange={e => setModel(e.target.value)} style={{
+            background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 12,
+            padding: "4px 10px", fontSize: 11, color: COLORS.text_dim,
+            cursor: "pointer", fontFamily: "Georgia, serif",
+          }}>
+            <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+            <option value="claude-opus-4-6">Opus 4.6</option>
+            <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
+          </select>
         </div>
       </div>
     </div>
