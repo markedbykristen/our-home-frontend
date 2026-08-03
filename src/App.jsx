@@ -9,6 +9,15 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
 }
 
+function formatStoredMessages(data) {
+  return data.map(message => ({
+    ...message,
+    time: new Date(message.created_at).toLocaleTimeString("zh-TW", {
+      hour: "2-digit", minute: "2-digit", hour12: false
+    })
+  }));
+}
+
 const COLORS = {
   bg: "#FFF8F6",
   surface: "#FFFFFF",
@@ -168,12 +177,27 @@ function App() {
     if (!activeSession) return;
     fetch(`${API}/messages/${activeSession}`)
       .then(r => r.json())
-      .then(data => {
-        setMessages(data.map(m => ({
-          ...m,
-          time: new Date(m.created_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false })
-        })));
-      });
+      .then(data => setMessages(formatStoredMessages(data)));
+  }, [activeSession]);
+
+  // 從通知回到 App 或重新聚焦時，載入小克在背景主動傳來的訊息。
+  useEffect(() => {
+    if (!activeSession) return;
+
+    const refreshMessages = () => {
+      if (document.visibilityState !== "visible") return;
+      fetch(`${API}/messages/${activeSession}`)
+        .then(r => r.json())
+        .then(data => setMessages(formatStoredMessages(data)))
+        .catch(() => {});
+    };
+
+    document.addEventListener("visibilitychange", refreshMessages);
+    window.addEventListener("focus", refreshMessages);
+    return () => {
+      document.removeEventListener("visibilitychange", refreshMessages);
+      window.removeEventListener("focus", refreshMessages);
+    };
   }, [activeSession]);
 
   useEffect(() => {
